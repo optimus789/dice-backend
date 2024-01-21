@@ -15,7 +15,6 @@ const privateKey = process.env.PRIVATE_KEY
 
 // const provider1 = ethers.getDefaultProvider('homestead'); // e.g., 'homestead' for Mainnet, 'rinkeby' for Rinkeby Testnet
 const provider = new ethers.JsonRpcProvider('https://sepolia.infura.io/v3/0ec5929eb3df452f9d5a47360e6912c3')
-// new ethers.JsonRpcApiProvider("https://sepolia.infura.io/v3/0ec5929eb3df452f9d5a47360e6912c3", 11155111);
 const signer = new ethers.Wallet(privateKey, provider);
 
 const walletConnected = signer.connect(provider);
