@@ -1,29 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^ 0.8.7;
-import "@api3/airnode-protocol/contracts/rrp/requesters/RrpRequesterV0.sol";
-import "@openzeppelin/contracts@4.9.5/access/Ownable.sol";
+
 interface IDiceToken {
     function transferFrom(address recipient, address to, uint amount) external returns(bool);
     function transfer(address to, uint amount) external returns(bool);
     function balanceOf(address account) external view returns(uint);
 }
 
-contract Wager is RrpRequesterV0, Ownable {
+contract Wager {
     // Game Variables
-    event RequestedUint256(bytes32 indexed requestId);
-    event ReceivedUint256(bytes32 indexed requestId, uint256 response);
-    event RequestedUint256Array(bytes32 indexed requestId, uint256 size);
-    event ReceivedUint256Array(bytes32 indexed requestId, uint256[] response);
-    event WithdrawalRequested(address indexed airnode, address indexed sponsorWallet);
-
-    address public airnode;                 // The address of the QRNG Airnode
-    bytes32 public endpointIdUint256;       // The endpoint ID for requesting a single random number
-    bytes32 public endpointIdUint256Array;  // The endpoint ID for requesting an array of random numbers
-    address public sponsorWallet;           // The wallet that will cover the gas costs of the request
-    uint256 public _qrngUint256;            // The random number returned by the QRNG Airnode
-    uint256[] public _qrngUint256Array;     // The array of random numbers returned by the QRNG Airnode
-    mapping(bytes32 => bool) public expectingRequestWithIdToBeFulfilled;
-
     string public gameState = "WAIT";
     uint256 public roundId = 0;
     address public managerAddress;
@@ -41,62 +26,9 @@ contract Wager is RrpRequesterV0, Ownable {
     event RoundFinished(uint256 indexed roundId, uint256 winningSide, address[] winners);
 
     // Constructor
-    constructor(address _DICEAddress, address _airnodeRrp)  RrpRequesterV0(_airnodeRrp)
+    constructor(address _DICEAddress)
     {
         DICE = IDiceToken(_DICEAddress);
-    }
-
-    /// @notice Sets the parameters for making requests
-    function setRequestParameters(
-        address _airnode,
-        bytes32 _endpointIdUint256,
-        bytes32 _endpointIdUint256Array,
-        address _sponsorWallet
-    ) external {
-        airnode = _airnode;
-        endpointIdUint256 = _endpointIdUint256;
-        endpointIdUint256Array = _endpointIdUint256Array;
-        sponsorWallet = _sponsorWallet;
-    }
-
-    /// @notice To receive funds from the sponsor wallet and send them to the owner.
-    receive() external payable {
-        payable(owner()).transfer(msg.value);
-        emit WithdrawalRequested(airnode, sponsorWallet);
-    }
-
-    /// @notice Requests a `uint256`
-    /// @dev This request will be fulfilled by the contract's sponsor wallet,
-    /// which means spamming it may drain the sponsor wallet.
-    function makeRequestUint256() external {
-        bytes32 requestId = airnodeRrp.makeFullRequest(
-            airnode,
-            endpointIdUint256,
-            address(this),
-            sponsorWallet,
-            address(this),
-            this.fulfillUint256.selector,
-            ""
-        );
-        expectingRequestWithIdToBeFulfilled[requestId] = true;
-        emit RequestedUint256(requestId);
-    }
-
-    /// fulfill the request
-    function fulfillUint256(bytes32 requestId, bytes calldata data)
-        external
-        onlyAirnodeRrp
-    {
-        require(
-            expectingRequestWithIdToBeFulfilled[requestId],
-            "Request ID not known"
-        );
-        expectingRequestWithIdToBeFulfilled[requestId] = false;
-        uint256 qrngUint256 = abi.decode(data, (uint256));
-        _qrngUint256 = qrngUint256;
-        // Do what you want with `qrngUint256` here...
-        uint256 winningSide = _qrngUint256 % 6 + 1;
-        emit ReceivedUint256(requestId, qrngUint256);
     }
 
     modifier onlyManager() {
@@ -139,8 +71,8 @@ contract Wager is RrpRequesterV0, Ownable {
     //     distributeRewards(winningSide);
     // }
 
-    function manualGameEnd() public onlyManager {
-        uint256 winningSide = _qrngUint256 % 6 + 1;
+    function manualGameEnd(uint256 numberSide) public onlyManager {
+        uint256 winningSide = numberSide;
         gameState = "FINISH";
         distributeRewards(winningSide);
     }

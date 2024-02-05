@@ -43,7 +43,7 @@ wss.broadcast = function broadcast(data) {
             }
         });
     } catch (error) {
-        console.log("ERROR", error);
+        console.log("ERROR", error, data);
     }
 }
 

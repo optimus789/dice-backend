@@ -1,0 +1,35 @@
+{
+    "language": "Solidity",
+    "sources": {
+        "wager/Wager.sol": {
+            "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^ 0.8.7;\r\n\r\ninterface IDiceToken {\r\n    function transferFrom(address recipient, address to, uint amount) external returns(bool);\r\n    function transfer(address to, uint amount) external returns(bool);\r\n    function balanceOf(address account) external view returns(uint);\r\n}\r\n\r\ncontract Wager {\r\n    // Game Variables\r\n    string public gameState = \"WAIT\";\r\n    uint256 public roundId = 0;\r\n    address public managerAddress;\r\n    IDiceToken public DICE;\r\n\r\n    // Bets and Winners\r\n    struct Bet {\r\n        uint256 side;\r\n        uint256 amount;\r\n    }\r\n    mapping(address => Bet) public bets;\r\n    mapping(uint256 => address[]) sideBets;\r\n\r\n    event BetPlaced(address indexed player, uint256 side, uint256 amount);\r\n    event RoundFinished(uint256 indexed roundId, uint256 winningSide, address[] winners);\r\n\r\n    // Constructor\r\n    constructor(address _DICEAddress)\r\n    {\r\n        DICE = IDiceToken(_DICEAddress);\r\n        managerAddress = msg.sender;\r\n    }\r\n\r\n    modifier onlyManager() {\r\n        require(msg.sender == managerAddress, \"Only manager can call this\");\r\n        _;\r\n    }\r\n\r\n    function startWait() public onlyManager {\r\n        require(keccak256(abi.encodePacked(gameState)) != keccak256(abi.encodePacked(\"WAIT\")), \"Game already in WAIT state\");\r\n        gameState = \"WAIT\";\r\n        roundId++;\r\n    }\r\n\r\n    function placeBet(uint256 _side, uint256 _amount) public {\r\n        require(keccak256(abi.encodePacked(gameState)) == keccak256(abi.encodePacked(\"WAIT\")), \"Not accepting bets now\");\r\n        require(_side >= 1 && _side <= 6, \"Invalid side\");\r\n        require(DICE.transferFrom(msg.sender, address(this), _amount), \"Transfer failed\");\r\n\r\n        bets[msg.sender] = Bet({ side: _side, amount: _amount });\r\n        sideBets[_side].push(msg.sender);\r\n\r\n        emit BetPlaced(msg.sender, _side, _amount);\r\n    }\r\n\r\n    // function requestRandomWords()\r\n    // external\r\n    // onlyManager\r\n    // returns(uint256 requestId)\r\n    // {\r\n    //     require(keccak256(abi.encodePacked(gameState)) == keccak256(abi.encodePacked(\"WAIT\")), \"Game not in correct state to finish\");\r\n    //     gameState = \"FINISH\";\r\n    //     // Will revert if subscription is not set and funded.\r\n    //     return requestId;\r\n    // }\r\n\r\n    // function fulfillRandomWords(\r\n    //     uint256[] memory _randomWords\r\n    // ) internal {\r\n    //     uint256 winningSide = (_randomWords[0] % 6) + 1;\r\n    //     distributeRewards(winningSide);\r\n    // }\r\n\r\n    function manualGameEnd(uint256 numberSide) public onlyManager {\r\n        uint256 winningSide = numberSide;\r\n        gameState = \"FINISH\";\r\n        distributeRewards(winningSide);\r\n    }\r\n\r\n    function distributeRewards(uint256 winningSide) internal {\r\n        address[] memory winners = sideBets[winningSide];\r\n        uint256 pool = DICE.balanceOf(address(this));\r\n        uint256 totalRewardAmount = 0;\r\n\r\n        for (uint256 i = 0; i < winners.length; i++) {\r\n            totalRewardAmount += bets[winners[i]].amount;\r\n        }\r\n\r\n        require(pool >= totalRewardAmount, \"Contract does not have enough tokens to distribute\");\r\n\r\n        if (winners.length > 0) {\r\n            uint256 rewardPerWinner = pool / winners.length;\r\n            for (uint256 i = 0; i < winners.length; i++) {\r\n                require(DICE.transfer(winners[i], rewardPerWinner), \"Transfer failed\");\r\n            }\r\n        }\r\n\r\n        emit RoundFinished(roundId, winningSide, winners);\r\n\r\n        // Reset for next round\r\n        gameState = \"WAIT\";\r\n        for (uint i = 1; i <= 6; i++) {\r\n            delete sideBets[i];\r\n        }\r\n        roundId++;\r\n    }\r\n\r\n}"
+        }
+    },
+    "settings": {
+        "optimizer": {
+            "enabled": false,
+            "runs": 200
+        },
+        "outputSelection": {
+            "*": {
+                "": [
+                    "ast"
+                ],
+                "*": [
+                    "abi",
+                    "metadata",
+                    "devdoc",
+                    "userdoc",
+                    "storageLayout",
+                    "evm.legacyAssembly",
+                    "evm.bytecode",
+                    "evm.deployedBytecode",
+                    "evm.methodIdentifiers",
+                    "evm.gasEstimates",
+                    "evm.assembly"
+                ]
+            }
+        },
+        "remappings": []
+    }
+}
